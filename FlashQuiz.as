@@ -14,8 +14,25 @@
 
 	public class FlashQuiz extends MovieClip {
 		
-		// My instance variables
+		// The questions that will be asked
 		var questSet:Array = new Array;
+		// The timer variables
+		var stopWatch:Shape;
+		var ticker:Shape;
+		var rotator:Number = 0;
+		var counter:Number = 0;
+		var timer:Timer = new Timer(1000);
+		var questionTime:Number = 10;  // The time for each question
+		// A variable for the scores
+		var score:int = 0;
+		var highScore:int = 0;
+		// Lives variable
+		var lives:int = 3;
+		// Button arrays
+		var modeButtons:Array;
+		var answerButtons:Array;
+		// Button actionListerners
+		var buttonEvent:Function;
 		
 		// The example's instance variables
 		/*
@@ -48,35 +65,11 @@
 		*/
 
 		public function FlashQuiz():void {
-			var i:int = 0;
-
-			// Creating the questions and answers
-			numModes:int = 3;  // The number of modes in the game
-			var questions:Array = new Array(numModes);
-			var numQuestions:int = 10;  // How many questions are in each mode
-			for (i = 0; i < numModes; i++) {
-				questions[i] = new Array(numQuestions); // Creating an accessable array for each question
-			}
-			populateQandA(questions);  // Creating the questions and answers
-			
-			// Creating the buttons for the different game modes
-			var modeButtons:Array = new Array(numModes);  // An array for all the mode buttons
-			var modeNames:Array = new Array(numModes);  // An array for all the mode names
-			modeNames = ["geo1", "geo2", "geo3"];
-			for (i = 0; i < numModes; i++) {
-				modeButtons[i] = createButton(modeNames[i]);
-				modeButtons[i].addEventListener(MouseEvent.CLICK, modeClick(modeButtons, modeNames, questions));
-			}
+			newGame();
 			
 			// Creating the timer and the stopwatch
-			var stopWatch:Shape;
-			var ticker:Shape;
-			var rotator:Number = 0;
-			var counter:Number = 0;
-			var questionTime:Number = 10;  // The time for each question
 			createTimer();
-			var timer:Timer = new Timer(1000);
-			timer.addEventListener("Timer", timerHandler(rotator, ticker, counter, questionTime));
+			timer.addEventListener("Timer", timerHandler());
 			
 			/*
 			questionsLength=questions.length;
@@ -173,7 +166,34 @@
 			addChild(scoreTextField);
 
 		}
+		*/
+		
+		private function newGame():void {
+			var i:int = 0;
+			
 
+			// Creating the questions and answers
+			var numModes:int = 3;  // The number of modes in the game
+			var questions:Array = new Array(numModes);
+			var numQuestions:int = 10;  // How many questions are in each mode
+			for (i = 0; i < numModes; i++) {
+				questions[i] = new Array(numQuestions); // Creating an accessable array for each question
+			}
+			populateQandA(questions);  // Creating the questions and answers
+			
+			
+			// Creating the buttons for the different game modes
+			modeButtons = new Array(numModes);  // An array for all the mode buttons
+			var modeNames:Array = new Array(numModes);  // An array for all the mode names
+			modeNames = ["geo1", "geo2", "geo3"];
+			buttonEvent = modeClick(modeNames, questions);
+			for (i = 0; i < numModes; i++) {
+				modeButtons[i] = createButton(modeNames[i], i*200, i*200);
+				modeButtons[i].addEventListener(MouseEvent.CLICK, buttonEvent);
+			}
+		}
+		
+		/*
 		public function answerCLICK(e:MouseEvent):void {
 
 			Text=e.target.getChildAt(0);
@@ -326,17 +346,51 @@
 			 * points for the right answer?
 			 * Would probably be easier if it was implemented using a recursive function.
 			 */
-			 if (questSet.length == 0) {
-				 gameOver();
-			 } else {
-				 var randQuest:Array = randomQuest(questSet);
-				 var answerOrder:Array = randomAnswers(randQuest);
-				 // TODO: 
-				 //		Set the question text to be randQuest[0]
-				 // 	Create buttons for the answers
-				 //		Get the timer to work, might need instance variable for it Q.Q
-				 // 	Create some game over code
-			 }
+			removeButtons();
+			var i:int = 0;
+			if (questSet.length == 0) {
+				// Maybe add in a congratulations screen
+				newGame();
+			} else {
+				var randQuest:Array = randomQuest(questSet);
+				var answerOrder:Array = randomAnswers(randQuest);
+				// Set the question text to be randQuest[0]
+				// Create buttons for the answers
+				answerButtons = new Array(answerOrder.length-1);
+				buttonEvent = answer(randQuest[1]);
+				for (i = 1; i < answerOrder; i++) {
+					answerButtons[i - 1] = createButton(answerOrder[i]);
+					answerButtons[i - 1].addEventListener(MouseEvent.CLICK, buttonEvent);
+				}
+			}
+			timer.start();
+		}
+		
+		// If we need a game over screen, this is where it would go.
+		/*
+		private function gameOver():void {
+			score = 0;
+		}
+		*/
+		
+		private function answer(check:String):Function {
+  			return function(e:MouseEvent):void {
+			stopTimer();
+			if (e.currentTarget.label == check) {
+				score++;
+				if (score > highScore) {
+					highScore = score;
+				}
+			}
+			else {
+				lives--;
+				if (lives == 0) {
+					removeButtons;
+					score == 0;
+					newGame();
+				}
+			}
+			theGame();
 		}
 		
 		private function randomQuest(questions:Array):Array {
@@ -354,24 +408,31 @@
 			for (i = 0; i < questions[1].length; i++) {
 				clone[i] = questions[1][i];
 			}
-			// Create a new array to randomly order the new array
+			// Create a new array to randomly order the new array 
+			// (With the question still at the front)
 			var randomClone:Array = new Array();
+			randomClone.push(clone[0]);
 			while (clone.length > 0) {
 				randomClone.push(clone[round(Math.random()*clone.length)]);
 			}
 			return randomClone;
 		}
 		
-		private function timerHandler(rotator:Number, ticker:Shape, counter:Number, time:Number):Function {
-  			return function(e:TimerEvent):void {
-				rotator = rotator + (360 / time);
-				ticker.rotation=- rotator;
-				counter++;
-				if (counter==time) {
-					counter=0;
-					theGame();
-				}
-			};
+		private function timerHandler(e:TimerEvent):void {
+  			rotator = rotator + (360 / questionTime);
+			ticker.rotation=- rotator;
+			counter++;
+			if (counter==questionTime) {
+				stopTimer();
+				theGame();
+			}
+		}
+		
+		private function stopTimer() {
+			rotator = 0;
+			ticker.rotation = 0;
+			counter = 0;
+			timer.stop();
 		}
 		
 		public function DrawTimer(line:Shape, circle:Shape):void {
@@ -385,33 +446,40 @@
 			addChild(line);
 		}
 		
-		private function CreateButton(buttonName:String):Button {
+		private function CreateButton(buttonName:String, x:Number, y:Number):Button {
 			var button:Button = new Button;
 			button.label = buttonName;
 			button.graphics.beginFill(0xCCCCCC, 2);
 			button.graphics.drawRect(0, 0, 100, 20);
 			button.graphics.endFill();
 			button.selectable = false;
+			button.x = x;
+			button.y = y;
 			return button;
 		}
 		
-		private function modeClick(modeButtons:Array, modeNames: Array, questions:Array):Function {
+		private function modeClick(modeNames: Array, questions:Array):Function {
   			return function(e:MouseEvent):void {
 				// Gets the label of the button and gets the array associated with it
 				var mode:int = modeNames.indexOf(e.currentTarget.label);
 				questSet = questions[mode];
-				//Some code here to cancel the mode buttons and hide them
 				theGame();
-				//Some new function here to cycle through the questions etc. The actual game
   			};
 		}
-
-/*
-		The rest of my code for the click
-		var functionOnClick:Function = onClick(true, 123, 4.56, "string");
-		stage.addEventListener(MouseEvent.CLICK, functionOnClick);
-		stage.removeEventListener(MouseEvent.CLICK, functionOnClick);
-*/
+		
+		private function removeButtons() {
+			if (modeButtons.length > 0) {
+				for each(var butt:Button) {
+					butt.removeEventListener(MouseEvent.CLICK, buttonEvent);
+				}
+				modeButtons = [];
+			}
+			if (answerButtons.length > 0) {
+				for each(var butt:Button) {
+					butt.removeEventListener(MouseEvent.CLICK, buttonEvent);
+				}
+			}
+		}
 		
 		// Each array input has the question followed by 4 possible answers, the first answer being the correct one
 		// So position 0 of the array (within the array) is the question, position 1 is the correct answer and the rest
