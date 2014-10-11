@@ -1,7 +1,7 @@
 package
 {
-	import flash.display.Sprite;
 	import flash.display.Shape;
+	import flash.display.Sprite;
 	import flash.events.MouseEvent;
 	import flash.text.TextField;
 	
@@ -10,9 +10,15 @@ package
 		// Global Variables here
 		private var numModes:int = 3; // The number of modes in the game
 		private var numQuestions:int = 10; // The number of questions in each mode
+		private var questLeft:int = 3; // How many questions we want to go through
+		private var mode; // The current mode of the game
 		
 		private var modeButtons:Array; // The array for storing all buttons at the start of the game
-		private var buttonEvent:Function;
+		private var answerButtons:Array; // The array for storing all buttons for the answers
+		private var buttonEvent:Function; // A variable to store the current button function (To remove later)
+		
+		private var score:int; // The player's current score
+		private var highScores:Array = new Array(numModes); // The current high scores
 		
 		public function quizWiz() {
 			newGame();
@@ -34,9 +40,65 @@ package
 			buttonEvent = modeClick(modeNames, questions);
 			for (i = 0; i < numModes; i++) {
 				modeButtons[i] = createButton(modeNames[i], i);
-				//modeButtons[i].addEventListener(MouseEvent.CLICK, buttonEvent);
+				modeButtons[i].addEventListener(MouseEvent.CLICK, buttonEvent);
 				this.addChild(modeButtons[i]);
 			}
+		}
+		
+		private function theGame(questSet:Array):void {
+			removeButtons(); // Remove buttons to avoid clogging up the memory
+			if (questLeft == 0) {
+				fanFare(); // In case of them finishing the game
+			}
+			else {
+				var randQuest:Array = randomQuest(questSet); // Pick a random question from the array
+				var answerOrder:Array = randomAnswer(randQuest); // Randomize the answer order
+				answerButtons = new Array(answerOrder.length-1); // Instantiate the array for the answer buttons
+				buttonEvent = answer(randQuest[1], questSet); // Make a new button event for them
+				for (var i:int = 1; i < answerOrder.length; i++) {
+					answerButtons[i - 1] = createButton(answerOrder[i], i - 1);
+					answerButtons[i - 1].addEventListener(MouseEvent.CLICK, buttonEvent);
+					this.addChild(answerButtons[i-1]);
+				}
+				questLeft--;
+			}
+		}
+		
+		private function fanFare():void {
+			// Display score
+			// Reset score
+			// Add button to return to mode select
+			//		This button will also remove one mode
+			//		So numModes - 1 and questions will wash over it
+			// Maybe add button to play again
+		}
+		
+		private function randomQuest(questions:Array):Array {
+			// As the current question array is an array (Set) of arrays (Questions), 
+			// need to choose a random one.
+			// For completeness and to avoid choosing the same array twice, remove the 
+			// array (Question) from the array (Set) and return it.
+			var randQues:Array = questions[Math.round(Math.random()*questions.length)]; // Get a random question from the set
+			questions.splice(questions.indexOf(randQues), 1); // Remove the question from the set
+			return randQues;
+		}
+		
+		private function randomAnswer(question:Array):Array {
+			// Clone the answer array
+			var clone:Array = new Array(question.length);
+			for (var i:int = 0; i < question.length; i++) {
+				clone[i] = question[i]; // Make a deep copy of question
+			}
+			// Create a new array to randomly order the new array 
+			// (With the question still at the front)
+			var randomClone:Array = new Array();
+			randomClone.push(clone.shift()); // Take the first element of clone (The question) and add it onto randomClone
+			while (clone.length > 0) {
+				var randInt:int = Math.round(Math.random()*(clone.length-1)); // Create a new random integer
+				randomClone.push(clone[randInt]); // Add on a new random answer from clone to randomClone
+				clone.splice(randInt, 1); // Remove that answer from clone
+			}
+			return randomClone;
 		}
 		
 		/*
@@ -71,10 +133,48 @@ package
 		
 		private function modeClick(modes:Array, questions:Array):Function {
 			return function(e:MouseEvent):void {
+				var modeText:TextField = TextField(e.currentTarget.getChildByName("textField"));
+				mode = modes.indexOf(modeText.text); // Grab the index of the mode we are playing
 				
+				var questSet:Array = new Array(questions[mode].length); // Create a new array to store only that question set
+				for (var i:int = 0; i < questions[mode].length; i++) {
+					questSet[i] = questions[mode][i]; // Populate that new array
+				}
+				theGame(questSet); // Start the game
 			}
 		}
 		
+		private function answer(check:String, questSet:Array):Function {
+			return function(e:MouseEvent):void {
+				var answerText:TextField = TextField(e.currentTarget.getChildByName("textField"));
+				if (answerText.text == check) { // If you have the right answer
+					score++; // Needs to be more robust
+					if (score > highScores[mode]) {
+						highScores[mode] = score; // To keep track of the highScores
+					}
+				}
+				theGame(questSet); // Back to the playing field
+			}
+		}
+		
+		/*
+		 * A quick method to remove all buttons from the modes or answers, depending on which is which
+		 */
+		private function removeButtons():void {
+			if (modeButtons.length > 0) {
+				for each(var butt:Sprite in modeButtons) {
+					butt.removeEventListener(MouseEvent.CLICK, buttonEvent);
+					this.removeChild(butt);
+				}
+				modeButtons = [];
+			} else if (answerButtons.length > 0) {
+				for each(var but:Sprite in answerButtons) {
+					but.removeEventListener(MouseEvent.CLICK, buttonEvent);
+					this.removeChild(but);
+				}
+				answerButtons = [];
+			}
+		}
 		
 		/*
 		 * Basically a text dump for all the questions. Format is as follows:
